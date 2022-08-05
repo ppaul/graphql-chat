@@ -1,4 +1,8 @@
 import { Message } from './db.js';
+import { PubSub } from 'graphql-subscriptions';
+
+
+const pubSub = new PubSub();
 
 function rejectIf(condition) {
   if (condition) {
@@ -15,9 +19,17 @@ export const resolvers = {
   },
 
   Mutation: {
-    addMessage: (_root, { input }, { userId }) => {
+    addMessage: async (_root, { input }, { userId }) => {
       rejectIf(!userId);
-      return Message.create({ from: userId, text: input.text });
-    },  
+      const messageAdded = await Message.create({ from: userId, text: input.text });
+      pubSub.publish("MESSAGE_ADDED", { messageAdded })
+      return messageAdded;
+    },
   },
+
+  Subscription: {
+    messageAdded: {
+      subscribe: () => pubSub.asyncIterator("MESSAGE_ADDED")
+    }
+  }
 };
